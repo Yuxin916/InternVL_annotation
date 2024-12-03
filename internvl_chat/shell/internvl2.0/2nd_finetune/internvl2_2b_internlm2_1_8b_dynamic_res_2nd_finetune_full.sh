@@ -1,17 +1,26 @@
 set -x
 
+# Sets the GPUS variable to 2 unless it is already defined in the environment
 GPUS=${GPUS:-8}
+# Sets the BATCH_SIZE variable to 16 unless it is already defined in the environment
+# total number of images processed at each forward pass across all GPUs
 BATCH_SIZE=${BATCH_SIZE:-128}
+# batch size for each GPU is 4 unless specified
 PER_DEVICE_BATCH_SIZE=${PER_DEVICE_BATCH_SIZE:-4}
+# gradient accumulation steps. the number of iterations required to achieve the total batch size across all GPUs
+# control how many forward passes (mini-batches) are performed before performing a backward pass and updating model parameters
 GRADIENT_ACC=$((BATCH_SIZE / PER_DEVICE_BATCH_SIZE / GPUS))
-
+echo "Total batch size: $BATCH_SIZE; Per device: $PER_DEVICE_BATCH_SIZE; GPU: $GPUS; Gradient Accumulation: $GRADIENT_ACC"
 
 export PYTHONPATH="${PYTHONPATH}:$(pwd)"
+
+# distributed computing settings
 export MASTER_PORT=34229
+# TensorFlow log level to suppress most of the logs. 3 only allows error messages to be printed
 export TF_CPP_MIN_LOG_LEVEL=3
 export LAUNCHER=pytorch
 
-OUTPUT_DIR='work_dirs/internvl_chat_v2_0/internvl2_2b_internlm2_1_8b_dynamic_res_2nd_finetune_full'
+OUTPUT_DIR='log/internvl_chat_v2_0/internvl2_2b_internlm2_1_8b_dynamic_res_2nd_finetune_full'
 
 if [ ! -d "$OUTPUT_DIR" ]; then
   mkdir -p "$OUTPUT_DIR"

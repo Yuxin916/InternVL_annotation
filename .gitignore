@@ -172,3 +172,6 @@ data_process/
 
 batchscript-*
 results/
+internvl_chat/pretrained/
+internvl_chat/log/
+internvl_chat/assets/

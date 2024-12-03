@@ -14,6 +14,16 @@ from pycocoevalcap.eval import COCOEvalCap
 from pycocotools.coco import COCO
 from tqdm import tqdm
 
+"""
+The script:
+
+    Loads a pre-trained captioning model.
+    Uses the model to generate captions for images from specified datasets.
+    Uses the COCO evaluation framework to assess the quality of generated captions.
+    Distributes the task among multiple GPUs to speed up the evaluation.
+"""
+
+# 'max_new_tokens': maximum number of tokens in generated captions
 ds_collections = {
     'flickr30k': {
         'root': 'data/flickr30k/',
@@ -38,9 +48,17 @@ ds_collections = {
 
 
 class CaptionDataset(torch.utils.data.Dataset):
+    """
+    Load and preprocess images for evaluation
+    """
 
     def __init__(self, name, root, annotation, prompt, input_size=224, dynamic_image_size=False,
                  use_thumbnail=False, max_num=6):
+        """
+        Initializes the dataset.
+        Loads image data from the provided annotation files.
+        Defines transformations (such as resizing or normalizing images).
+        """
         if name == 'coco':
             self.images = json.load(open(annotation))
         else:
@@ -58,6 +76,10 @@ class CaptionDataset(torch.utils.data.Dataset):
         return len(self.images)
 
     def __getitem__(self, idx):
+        """
+        Returns the preprocessed image and additional data required for the model.
+        Supports dynamic resizing if specified (dynamic_image_size).
+        """
         if self.name == 'coco':
             filename = self.images[idx]['image']
             image_id = int(filename.split('_')[-1].replace('.jpg', ''))
@@ -87,6 +109,13 @@ class CaptionDataset(torch.utils.data.Dataset):
 
 
 def collate_fn(inputs, tokenizer):
+    """
+    merge multiple data samples into a single batch for the dataloader.
+
+        Concatenates the images, tokens, and other required inputs.
+        Uses a tokenizer to convert input texts to token IDs.
+
+    """
     pixel_values = torch.cat([_['pixel_values'] for _ in inputs], dim=0)
     image_ids = [_['image_id'] for _ in inputs]
     input_texts = [_['input_text'] for _ in inputs]
@@ -207,7 +236,7 @@ def evaluate_chat_model():
             coco_eval.evaluate()
 
             summary = coco_eval.eval.items()
-            print(summary)
+            # print(summary)
             summaries.append([args.checkpoint, ds_name, average_length, summary])
 
         torch.distributed.barrier()

@@ -48,10 +48,15 @@ class InternVLChatConfig(PretrainedConfig):
             llm_config = {}
             logger.info('llm_config is None. Initializing the LlamaConfig config with default values (`LlamaConfig`).')
 
+        # config the vision encoder
+        # configuration_intern_vit.py
         self.vision_config = InternVisionConfig(**vision_config)
+
+        # config the language model
         if llm_config['architectures'][0] == 'LlamaForCausalLM':
             self.llm_config = LlamaConfig(**llm_config)
         elif llm_config['architectures'][0] == 'InternLM2ForCausalLM':
+            # configuration_internlm2.py
             self.llm_config = InternLM2Config(**llm_config)
         elif llm_config['architectures'][0] == 'Phi3ForCausalLM':
             self.llm_config = Phi3Config(**llm_config)
