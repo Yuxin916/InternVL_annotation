@@ -1,0 +1,23 @@
+{
+  "hm3d": {
+    "root": "../../notes_label/assets/hm3d/",
+    "annotation": "../../notes_label/assets/hm3d/annotations.jsonl",
+    "data_augment": false,
+    "repeat_time": 1,
+    "length": 774
+  },
+  "ovon": {
+    "root": "../../notes_label/assets/ovon/",
+    "annotation": "../../notes_label/assets/ovon/annotations.jsonl",
+    "data_augment": false,
+    "repeat_time": 1,
+    "length": 774
+  },
+  "mp3d": {
+      "root": "../../notes_label/assets/mp3d/",
+      "annotation": "../../notes_label/assets/mp3d/annotations.jsonl",
+      "data_augment": false,
+      "repeat_time": 1,
+      "length": 774
+  }
+}
