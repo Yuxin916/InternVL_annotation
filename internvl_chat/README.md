@@ -21,6 +21,7 @@ GPUS=1 bash evaluate.sh pretrained/InternVL2-2B caption-coco --dynamic --auto
 
 ## LoRA Finetuning
 ```aiignore
+# run in internvl_chat folder
 GPUS=1 PER_DEVICE_BATCH_SIZE=4 bash shell/internvl2.0/2nd_finetune/internvl2_2b_internlm2_1_8b_dynamic_res_2nd_finetune_lora_coco.sh
 ```
 ![Train Config](assets/internvl2_2b_internlm2_1_8b_dynamic_res_2nd_finetune_lora_coco.png)
@@ -44,6 +45,22 @@ This means that for **every 16 images (2 iterations × 8 images)**, the gradient
 Without gradient accumulation, **the batch size per iteration is effectively 8 (4 images per GPU across 2 GPUs)**.
 With gradient_accumulation_steps=2, **the effective batch size for parameter updates becomes 8 × 2 = 16**.
 Thus, even though each iteration processes a mini-batch of 8 images, the model updates its weights only after processing an effective batch of 16 images.
+
+## 📚 Prepare Your Customized Training Data
+1. Prepare **meta_path** for the dataset at [internvl_1_2_finetune_custom.json](shell/data/internvl_1_2_finetune_custom.json)
+   - root is the root directory of the dataset
+   - annotation is the path to the annotation file
+   - data_augment indicates whether data augmentation is needed, 
+   - repeat_time is the number of times the dataset is repeated, 
+   - length is the number of samples in the dataset
+   - 
+2. Preapre the annotation format, can be four types:
+   - Pure text data, 
+   - Single-image data, 
+   - Multi-image (interleaved) data, 
+   - Video data
+   - (We do not require all entries in a JSONL file to be of the same type, meaning your JSONL file can contain **different types of data**.)
+   - See https://internvl.readthedocs.io/en/latest/get_started/chat_data_format.html for more details.
 
 
 ## 🛠️ Installation

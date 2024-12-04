@@ -8,3 +8,6 @@ platformdirs
 tensorboard
 tomli
 yapf==0.40.1
+requests==2.32.3
+tqdm==4.66.5
+numpy==1.23
