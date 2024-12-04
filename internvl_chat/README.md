@@ -19,10 +19,13 @@ This folder contains the implementation of the InternVL-Chat.
 GPUS=1 bash evaluate.sh pretrained/InternVL2-2B caption-coco --dynamic --auto
 ```
 
-## LoRA Finetuning
+## LoRA Finetuning of Habitat Data
 ```aiignore
 # run in internvl_chat folder
-GPUS=1 PER_DEVICE_BATCH_SIZE=4 bash shell/internvl2.0/2nd_finetune/internvl2_2b_internlm2_1_8b_dynamic_res_2nd_finetune_lora_coco.sh
+# Coco
+# GPUS=1 PER_DEVICE_BATCH_SIZE=4 bash shell/internvl2.0/2nd_finetune/internvl2_2b_internlm2_1_8b_dynamic_res_2nd_finetune_lora_coco.sh
+# habitat
+GPUS=1 PER_DEVICE_BATCH_SIZE=4 bash shell/internvl2.0/habitat_2b_finetune/lora.sh
 ```
 ![Train Config](assets/internvl2_2b_internlm2_1_8b_dynamic_res_2nd_finetune_lora_coco.png)
 

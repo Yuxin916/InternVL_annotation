@@ -1,23 +1,23 @@
 {
-  "hm3d": {
+  "hm3d_minival": {
     "root": "../../notes_label/assets/hm3d/",
-    "annotation": "../../notes_label/assets/hm3d/annotations.jsonl",
+    "annotation": "../../notes_label/assets/hm3d/minival/annotations.jsonl",
     "data_augment": false,
     "repeat_time": 1,
     "length": 774
   },
-  "ovon": {
+  "hm3d_val": {
+    "root": "../../notes_label/assets/hm3d/",
+    "annotation": "../../notes_label/assets/hm3d/val/annotations.jsonl",
+    "data_augment": false,
+    "repeat_time": 1,
+    "length": 15093
+  },
+  "ovon_val_seen": {
     "root": "../../notes_label/assets/ovon/",
-    "annotation": "../../notes_label/assets/ovon/annotations.jsonl",
+    "annotation": "../../notes_label/assets/ovon/val_seen/annotations.jsonl",
     "data_augment": false,
     "repeat_time": 1,
-    "length": 774
-  },
-  "mp3d": {
-      "root": "../../notes_label/assets/mp3d/",
-      "annotation": "../../notes_label/assets/mp3d/annotations.jsonl",
-      "data_augment": false,
-      "repeat_time": 1,
-      "length": 774
+    "length": 36888
   }
 }

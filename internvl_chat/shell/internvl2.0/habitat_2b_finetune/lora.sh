@@ -4,7 +4,7 @@ set -x
 GPUS=${GPUS:-2}
 # Sets the BATCH_SIZE variable to 16 unless it is already defined in the environment
 # total number of images processed at each forward pass across all GPUs
-BATCH_SIZE=${BATCH_SIZE:-16}
+BATCH_SIZE=${BATCH_SIZE:-8}
 # batch size for each GPU is 4 unless specified
 PER_DEVICE_BATCH_SIZE=${PER_DEVICE_BATCH_SIZE:-4}
 # gradient accumulation steps. the number of iterations required to achieve the total batch size across all GPUs
@@ -20,7 +20,7 @@ export MASTER_PORT=34229
 export TF_CPP_MIN_LOG_LEVEL=3
 export LAUNCHER=pytorch
 
-OUTPUT_DIR='log/habitat/lora_hm3d_minival'
+OUTPUT_DIR='log/habitat/lora_annots_1'
 
 if [ ! -d "$OUTPUT_DIR" ]; then
   mkdir -p "$OUTPUT_DIR"
