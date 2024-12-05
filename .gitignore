@@ -174,4 +174,5 @@ batchscript-*
 results/
 internvl_chat/pretrained/
 internvl_chat/log/
+internvl_chat/log_merged/
 internvl_chat/assets/

@@ -13,20 +13,6 @@ This folder contains the implementation of the InternVL-Chat.
 ![InternVL2_2B_Model_Card](assets/model_card.png)
 ![InternVL2_2B_Model_Card2](assets/model_card2.png)
 
-## Evaluation 
-```aiignore
-# evaluate the InternVL2-2B model on COCO Caption
-GPUS=1 bash evaluate.sh pretrained/InternVL2-2B caption-coco --dynamic --auto
-```
-
-## LoRA Finetuning of Habitat Data
-```aiignore
-# run in internvl_chat folder
-# Coco
-# GPUS=1 PER_DEVICE_BATCH_SIZE=4 bash shell/internvl2.0/2nd_finetune/internvl2_2b_internlm2_1_8b_dynamic_res_2nd_finetune_lora_coco.sh
-# habitat
-GPUS=1 PER_DEVICE_BATCH_SIZE=4 bash shell/internvl2.0/habitat_2b_finetune/lora.sh
-```
 ![Train Config](assets/internvl2_2b_internlm2_1_8b_dynamic_res_2nd_finetune_lora_coco.png)
 
 ## Some Configuration Meaning
@@ -65,49 +51,43 @@ Thus, even though each iteration processes a mini-batch of 8 images, the model u
    - (We do not require all entries in a JSONL file to be of the same type, meaning your JSONL file can contain **different types of data**.)
    - See https://internvl.readthedocs.io/en/latest/get_started/chat_data_format.html for more details.
 
+## Prepare Your Customized Evaluation Data
 
-## 🛠️ Installation
 
-See [INSTALLATION.md](../INSTALLATION.md)
 
-In addition, using this codebase requires executing the following steps:
+## LoRA Finetuning of Habitat Data
+```aiignore
+# run in internvl_chat folder
+# Coco
+# GPUS=1 PER_DEVICE_BATCH_SIZE=4 bash shell/internvl2.0/2nd_finetune/internvl2_2b_internlm2_1_8b_dynamic_res_2nd_finetune_lora_coco.sh
+# habitat
+GPUS=1 PER_DEVICE_BATCH_SIZE=4 bash shell/internvl2.0/habitat_2b_finetune/lora.sh
+```
 
-- Install other requirements:
+## Evaluate the Finetuned Model
+### On Training Data
 
-  ```bash
-  pip install --upgrade pip  # enable PEP 660 support
-  pip install -e .
-  ```
+### On Evaluation Data
+```bash
+# on COCO Caption
+GPUS=1 bash evaluate.sh pretrained/InternVL2-2B caption-coco --dynamic --auto
+```
 
-## 📖 Documents
+## Merging LoRA Weights
+After evaluating the fine-tuned model, you may want to merge the LoRA weights back into the original InternVL2 model
+```bash
+# python tools/merge_lora.py <input_path> <output_path>
+# COCO 
+# python tools/merge_lora.py work_dirs/internvl_chat_v2_0/internvl2_2b_internlm2_1_8b_dynamic_res_2nd_finetune_lora_coco/ work_dirs/internvl_chat_v2_0/internvl2_2b_internlm2_1_8b_dynamic_res_2nd_finetune_lora_coco_merge
+# Habitat
+PYTHONPATH=$PYTHONPATH:$(pwd) python tools/merge_lora.py log/habitat/lora_annots_1/ log_merged/habitat/lora_annots_1
+```
 
-- InternVL 2.0
 
-  - Introduction [\[link\]](https://internvl.readthedocs.io/en/latest/internvl2.0/introduction.html)
-  - Quick Start [\[link\]](https://internvl.readthedocs.io/en/latest/internvl2.0/quick_start.html)
-  - Finetune [\[link\]](https://internvl.readthedocs.io/en/latest/internvl2.0/finetune.html)
-  - Preference Optimization [\[link\]](https://internvl.readthedocs.io/en/latest/internvl2.0/preference_optimization.html)
-  - Evaluation [\[link\]](https://internvl.readthedocs.io/en/latest/internvl2.0/evaluation.html)
-  - Deployment [\[link\]](https://internvl.readthedocs.io/en/latest/internvl2.0/deployment.html)
-
-- InternVL 1.5
-
-  - Introduction [\[link\]](https://internvl.readthedocs.io/en/latest/internvl1.5/introduction.html)
-  - Quick Start [\[link\]](https://internvl.readthedocs.io/en/latest/internvl1.5/quick_start.html)
-  - Finetune [\[link\]](https://internvl.readthedocs.io/en/latest/internvl1.5/finetune.html)
-  - Evaluation [\[link\]](https://internvl.readthedocs.io/en/latest/internvl1.5/evaluation.html)
-  - Deployment [\[link\]](https://internvl.readthedocs.io/en/latest/internvl1.5/deployment.html)
-
-- InternVL 1.2
-
-  - Introduction [\[link\]](https://internvl.readthedocs.io/en/latest/internvl1.2/introduction.html)
-  - Quick Start [\[link\]](https://internvl.readthedocs.io/en/latest/internvl1.2/quick_start.html)
-  - Reproduce [\[link\]](https://internvl.readthedocs.io/en/latest/internvl1.2/reproduce.html)
-  - Finetune [\[link\]](https://internvl.readthedocs.io/en/latest/internvl1.2/finetune.html)
-  - Evaluation [\[link\]](https://internvl.readthedocs.io/en/latest/internvl1.2/evaluation.html)
-
-- InternVL 1.1
-
-  - Introduction [\[link\]](https://internvl.readthedocs.io/en/latest/internvl1.1/introduction.html)
-  - Quick Start [\[link\]](https://internvl.readthedocs.io/en/latest/internvl1.1/quick_start.html)
-  - Evaluation [\[link\]](https://internvl.readthedocs.io/en/latest/internvl1.1/evaluation.html)
+## Wrapping into AutoModel for easier inference or deployment
+```bash
+# copy all the Python scripts from the original InternVL2-2B directory to the new merged model directory
+cp pretrained/InternVL2-2B/*.py log_merged/habitat/lora_annots_1
+# copy the config.json file from the original InternVL2-2B directory to the new merged model directory
+cp pretrained/InternVL2-2B/config.json log_merged/habitat/lora_annots_1
+```
