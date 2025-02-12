@@ -171,4 +171,7 @@ data_process/
 *distillation*
 
 batchscript-*
-results/
+#results/
+
+internvl_chat/pretrained/
+internvl_chat/assets/
