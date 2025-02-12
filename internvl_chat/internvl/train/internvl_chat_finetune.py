@@ -879,7 +879,15 @@ def main():
     if len(sys.argv) == 2 and sys.argv[1].endswith('.json'):
         # If we pass only one argument to the script, and it's the path to a json file,
         # let's parse it to get our arguments.
-        model_args, data_args, training_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
+        json_path = os.path.abspath(sys.argv[1])
+        with open(json_path, "r") as f:
+            json_data = json.loads(f.read())
+
+        # Check if debug mode is enabled and remove "deepspeed" if present
+        if os.getenv("IS_DEBUG", "0") == "1":
+            json_data.pop("deepspeed", None)  # Remove "deepspeed" key if it exists
+
+        model_args, data_args, training_args = parser.parse_dict(json_data)
     else:
         model_args, data_args, training_args = parser.parse_args_into_dataclasses()
 
