@@ -15,6 +15,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from functools import partial
 from typing import Dict, Literal, Optional
+from datetime import datetime
 
 import numpy as np
 
@@ -70,6 +71,16 @@ except ImportError as E:
     print('petrel_client is not installed. Using PIL to load images.')
     has_tcs_loader = False
 
+"""
+If you want to debug this script and inspect variables: 
+1. Set arguments: 
+    ../../configs_finetune/lora_70k_few.json
+2. Set environment variables:
+    TF_CPP_MIN_LOG_LEVEL=3;MASTER_PORT=34229;IS_DEBUG=1;GPUS=1;MASTER_ADDR=127.0.0.1;
+3. Working directory:
+    InternVL/internvl_chat/
+"""
+
 # Set constants for image processing and logging
 IGNORE_INDEX = -100
 Image.MAX_IMAGE_PIXELS = None
@@ -79,6 +90,30 @@ MegaByte = 2 ** 20
 PngImagePlugin.MAX_TEXT_CHUNK = MaximumDecompressedSize * MegaByte
 
 warnings.filterwarnings('ignore')
+
+if not os.getenv("IS_DEBUG", "0") == "1":
+    # Define log file path
+    # Generate timestamp for the log filename
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")  # Format: YYYY-MM-DD_HH-MM-SS
+
+    # Define log directory and create it if it doesn't exist
+    log_dir = "../../all_log/vlm"
+    os.makedirs(log_dir, exist_ok=True)
+
+    # Define log file path with timestamp
+    log_file = os.path.join(log_dir, f"training_log_{timestamp}.txt")
+
+    # Configure logging
+    logging.basicConfig(
+        level=logging.INFO,  # Use DEBUG for more details
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        handlers=[
+            logging.FileHandler(log_file, mode='a'),  # Save to file
+            logging.StreamHandler(sys.stdout)  # Print to terminal
+        ]
+    )
+
+
 logger = logging.getLogger(__name__)
 
 os.environ['TOKENIZERS_PARALLELISM'] = 'true'
@@ -120,10 +155,13 @@ class ModelArguments:
     unfreeze_vit_layers: int = field(
         default=0,
         metadata={'help': 'Specify the number of ViT layers to unfreeze. Default is 0.'},
+        # adapting visual representations slightly while keeping the rest of the model frozen
     )
     vision_select_layer: int = field(
         default=-1,
         metadata={'help': 'Specify the layer of ViT feature map to use. Default is -1 for the last layer.'},
+        # last layer of the ViT -> most abstract representation
+        # earlier layer -> finer, more localized features
     )
     use_backbone_lora: int = field(
         default=0,
@@ -136,6 +174,8 @@ class ModelArguments:
     unfreeze_lm_head: bool = field(
         default=False,
         metadata={'help': 'Set to True to unfreeze the head of LLM. Default is False.'},
+        # final layer of the language model to be trainable, while the other parts may still be frozen
+        # adapt the output distribution of the LLM to the downstream task
     )
     grad_checkpoint: bool = field(
         default=True,
@@ -144,6 +184,7 @@ class ModelArguments:
     drop_path_rate: float = field(
         default=0.0,
         metadata={'help': 'Set the drop path rate for the ViT. Default is 0.'},
+        #  regularization for the Vision Transformer.
     )
     ps_version: Literal['v1', 'v2'] = field(
         default='v2',
@@ -171,6 +212,8 @@ class DataTrainingArguments:
                 'The maximum total input sequence length after tokenization. Sequences longer '
                 'than this will be truncated, sequences shorter will be padded.'
             )
+        # roughly handle between 5400 to 6300 words
+        # 640x480 image -> 1200 tokens
         },
     )
     force_image_size: int = field(
@@ -195,15 +238,21 @@ class DataTrainingArguments:
     use_data_resampling: bool = field(
         default=False,
         metadata={'help': 'Set to True to use data resampling. Default is False.'},
+        # strategy used to balance the distribution of classes in a dataset,
+        # either by oversampling minority classes,
+        # under-sampling majority classes, or generating synthetic data
     )
     dynamic_image_size: bool = field(
         default=False,
         metadata={'help': 'Set to True to use dynamic high resolution strategy. Default is False.'},
+        # resizing images differently on the fly to achieve better generalization.
     )
     use_thumbnail: bool = field(
         default=False,
         metadata={'help': 'Set to True to add a thumbnail image. Default is False.'},
     )
+    # Dynamic patches are a more flexible approach where the size, number, or focus area of the patches can vary
+    # based on the content of the image or the training context.
     min_dynamic_patch: int = field(
         default=1,
         metadata={'help': 'The minimum number of dynamic patches. Default is 1.'},
@@ -224,6 +273,8 @@ class DataTrainingArguments:
         default='imagenet',
         metadata={'help': 'The normalization type for the image. Default is imagenet.'},
     )
+    # packed dataset: multiple smaller data samples are packed together into a larger "super-sample"
+    # input data may vary significantly in size (process sequential or variable-length inputs)
     use_packed_ds: bool = field(
         default=False,
         metadata={'help': 'Whether to use packed dataset for efficient training. Default is False.'},
@@ -804,9 +855,27 @@ def main():
     # Parse input arguments
     # See all possible arguments in src/transformers/training_args.py
     # If use DeepSpeed zero3, init_dist must before HfArgumentParser
+
+    # for multi-GPU training
     launcher = os.environ.get('LAUNCHER', 'slurm')
-    init_dist(launcher=launcher, backend='nccl')
+    if os.getenv("IS_DEBUG", "0") == "1":
+        try:
+            torch.distributed.init_process_group(
+                backend='nccl',  # Use 'gloo' for CPU or 'nccl' for GPU
+                init_method='env://',  # This is common when running distributed
+                rank=0,  # Rank 0 for single GPU in debug mode
+                world_size=1  # Only one process
+            )
+            logging.info("Successfully initialized process group for debugging.")
+        except Exception as e:
+            logging.error(f"Failed to initialize process group: {e}")
+    else:
+        logging.info('Initializing distributed training as original script...')
+        init_dist(launcher=launcher, backend='nccl')
+
+    # parse all arguments
     parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments))
+    # all arguments in json file or command line
     if len(sys.argv) == 2 and sys.argv[1].endswith('.json'):
         # If we pass only one argument to the script, and it's the path to a json file,
         # let's parse it to get our arguments.
@@ -814,6 +883,7 @@ def main():
     else:
         model_args, data_args, training_args = parser.parse_args_into_dataclasses()
 
+    # transfer 'use_packed_ds' from data_args to training_args
     training_args.use_packed_ds = data_args.use_packed_ds
 
     # Sending telemetry. Tracking the example usage helps us better allocate resources to maintain them. The
@@ -862,6 +932,7 @@ def main():
     set_seed(training_args.seed)
 
     # Load pretrained model, tokenizer, and image processor
+    # load tokenizer
     tokenizer_path = model_args.model_name_or_path or model_args.llm_path
     logger.info(f'Loading Tokenizer: {tokenizer_path}')
     tokenizer = AutoTokenizer.from_pretrained(
@@ -888,9 +959,12 @@ def main():
         apply_liger_kernel_to_llama()
         apply_liger_kernel_to_qwen2()
         # apply_liger_kernel_to_internvit()
-
+    #  loading the model configuration and instantiating the model
     if model_args.model_name_or_path is not None:
         logger.info('Loading InternVLChatModel...')
+
+        # get model's configuration from pretrained model (specified by name)
+        # configuration_internvl_chat.py
         config = InternVLChatConfig.from_pretrained(model_args.model_name_or_path)
         config.vision_config.drop_path_rate = model_args.drop_path_rate
         if config.llm_config.model_type == 'internlm2':
@@ -906,6 +980,9 @@ def main():
         config.ps_version = model_args.ps_version
         config.min_dynamic_patch = data_args.min_dynamic_patch
         config.max_dynamic_patch = data_args.max_dynamic_patch
+
+        # use the config to construct the model
+        # modeling_internvl_chat.py
         model = InternVLChatModel.from_pretrained(
             model_args.model_name_or_path, torch_dtype=torch.bfloat16, config=config)
     else:
@@ -946,7 +1023,7 @@ def main():
         state_dict = torch.load(model_args.mlp_path, map_location='cpu')
         message = model.mlp1.load_state_dict(state_dict)
         logger.info(message)
-    logger.info('Finished')
+    logger.info('Finished loading model and tokenizer')
 
     patch_size = model.config.vision_config.patch_size
     logger.info(f'model.config.force_image_size: {model.config.force_image_size}')
@@ -975,9 +1052,13 @@ def main():
     model.language_model.config.use_cache = False
     model.vision_model.gradient_checkpointing = True
     model.vision_model.encoder.gradient_checkpointing = True
+
+    # logger.info(f'Model Structure: {model}')
+
     if model_args.grad_checkpoint:
         model.language_model._set_gradient_checkpointing()
 
+    # Load datasets
     train_dataset = build_datasets(
         data_args, tokenizer, tcs_loader, model, group_by_length=training_args.group_by_length,
         dynamic_image_size=data_args.dynamic_image_size, use_thumbnail=data_args.use_thumbnail,
@@ -1007,6 +1088,8 @@ def main():
     if model_args.use_llm_lora:
         model.wrap_llm_lora(r=model_args.use_llm_lora, lora_alpha=2 * model_args.use_llm_lora)
         model.config.use_llm_lora = model_args.use_llm_lora
+
+    # logger.info(f'LoRA Model Structure: {model}')
 
     if model_args.freeze_mlp:
         _freeze_params(model.mlp1)
