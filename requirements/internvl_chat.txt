@@ -9,7 +9,7 @@ imageio
 numpy
 opencv-python
 orjson
-peft>=0.4.0
+peft==0.10.0
 pycocoevalcap
 pyyaml
 scikit-learn>=1.2.2
