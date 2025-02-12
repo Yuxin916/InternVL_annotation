@@ -1,0 +1,10 @@
+
+{
+    "mp3d_70k_few": {
+    "root": "../../data_label/objectnav_mp3d_70k/few",
+    "annotation": "../../data_label/objectnav_mp3d_70k/few/annotations/annotation.jsonl",
+    "data_augment": false,
+    "repeat_time": 1,
+    "length": 2663
+  }
+}
