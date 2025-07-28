@@ -1,13 +1,25 @@
 set -x
 
+# Sets the GPUS variable to 8 unless it is already defined in the environment
+# how many GPUs will be used for training
 GPUS=${GPUS:-8}
+# Sets the BATCH_SIZE variable to 128 unless it is already defined in the environment
+# total number of images processed at each forward pass across all GPUs
 BATCH_SIZE=${BATCH_SIZE:-128}
+# batch size for each GPU is 4 unless specified
+# local batch size per GPU
 PER_DEVICE_BATCH_SIZE=${PER_DEVICE_BATCH_SIZE:-4}
+# gradient accumulation steps. the number of iterations required to achieve the total batch size across all GPUs
+# control how many forward passes (mini-batches) are performed before performing a backward pass and updating model parameters
 GRADIENT_ACC=$((BATCH_SIZE / PER_DEVICE_BATCH_SIZE / GPUS))
-
+echo "Total batch size: $BATCH_SIZE; Per device: $PER_DEVICE_BATCH_SIZE; GPU: $GPUS; Gradient Accumulation: $GRADIENT_ACC"
 
 export PYTHONPATH="${PYTHONPATH}:$(pwd)"
+
+# distributed computing settings
 export MASTER_PORT=34229
+# TensorFlow log level to suppress most of the logs.
+# 3 only allows error messages to be printed
 export TF_CPP_MIN_LOG_LEVEL=3
 export LAUNCHER=pytorch
 
