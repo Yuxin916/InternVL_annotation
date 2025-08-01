@@ -1,5 +1,6 @@
 set -x
 
+export CUDA_VISIBLE_DEVICES=0,1,3,4,6
 # Sets the GPUS variable to 8 unless it is already defined in the environment
 # how many GPUs will be used for training
 GPUS=${GPUS:-8}
@@ -23,6 +24,7 @@ export MASTER_PORT=34229
 export TF_CPP_MIN_LOG_LEVEL=3
 export LAUNCHER=pytorch
 
+# log
 OUTPUT_DIR='../../all_log/internvl_v3/internvl3_2b_dynamic_res_2nd_finetune_full'
 
 if [ ! -d "$OUTPUT_DIR" ]; then
@@ -77,5 +79,5 @@ torchrun \
   --use_thumbnail True \
   --ps_version 'v2' \
   --deepspeed "zero_stage1_config.json" \
-  --report_to "tensorboard" \
+  --report_to "wandb" \
   2>&1 | tee -a "${OUTPUT_DIR}/training_log.txt"
