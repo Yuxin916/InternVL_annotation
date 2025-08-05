@@ -1,0 +1,9 @@
+{
+  "mp3d_hdt_C16": {
+    "root": "../../data_mp3d_hdt/objectnav_mp3d_70k/",
+    "annotation": "../../data_mp3d_hdt/objectnav_mp3d_70k/sample/single_image_single_round.jsonl",
+    "data_augment": false,
+    "repeat_time": 1,
+    "length": 858921
+  }
+}

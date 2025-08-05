@@ -1,13 +1,19 @@
 set -x
 
+# Assigns the first command line argument to the variable CHECKPOINT
 CHECKPOINT=${1}
+# Assigns the second command line argument to the variable DATASET
 DATASET=${2}
+# CHECKPOINT to absolute path and working directory to PYTHONPATH
 CHECKPOINT="$(pwd)/${CHECKPOINT}"
 export PYTHONPATH="$(pwd):${PYTHONPATH}"
 echo "CHECKPOINT: ${CHECKPOINT}"
 
+# distributed computing settings
 MASTER_PORT=${MASTER_PORT:-63669}
 PORT=${PORT:-63665}
+
+# how many GPUs will be used overall and per node
 GPUS=${GPUS:-8}
 GPUS_PER_NODE=${GPUS_PER_NODE:-8}
 NODES=$((GPUS / GPUS_PER_NODE))
@@ -17,7 +23,7 @@ export PORT=${PORT}
 # Save original arguments
 ARGS=("$@")
 
-# Parse options
+# Parse options, If the argument is --auto, then set the GPUS to 1 (for debugging)
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --auto)
@@ -31,6 +37,7 @@ while [[ $# -gt 0 ]]; do
 done
 echo "GPUS: ${GPUS}"
 
+# DATASET specific settings
 if  [ ${DATASET} == "mme" ]; then
   cd eval/mme/
   DIRNAME=`basename ${CHECKPOINT}`
@@ -50,13 +57,14 @@ if  [ ${DATASET} == "caption" ]; then
 fi
 
 if  [ ${DATASET} == "caption-coco" ]; then
+  # torchrun -- PyTorch distributed training or evaluation
   torchrun \
     --nnodes=1 \
     --node_rank=0 \
     --master_addr=127.0.0.1 \
     --nproc_per_node=${GPUS} \
     --master_port=${MASTER_PORT} \
-    eval/caption/evaluate_caption.py --checkpoint ${CHECKPOINT} --datasets coco "${ARGS[@]:2}"
+    eval/caption/evaluate_caption.py --checkpoint ${CHECKPOINT} --datasets coco "${ARGS[@]:2}" # skip the first two arguments
 fi
 
 if  [ ${DATASET} == "caption-flickr30k" ]; then
