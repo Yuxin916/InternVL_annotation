@@ -89,6 +89,13 @@ class ModelArguments:
     """
     Arguments for specifying model, tokenizer, and configurations.
     """
+
+    """
+    if     
+    model_name_or_path set → Load entire model from there.
+    else:
+    model_name_or_path None → Use vision_path + llm_path (and optionally mlp_path) to assemble.
+    """
     model_name_or_path: Optional[str] = field(
         default=None,
         metadata={'help': 'Path to a pretrained model (local or from huggingface.co/models).'}
@@ -105,6 +112,19 @@ class ModelArguments:
         default=None,
         metadata={'help': 'Path to a pretrained model (local or from huggingface.co/models).'}
     )
+    """
+    freeze_backbone	    unfreeze_vit_layers	    use_backbone_lora	    Result
+        True	                0	                    0	        Vision fully frozen
+        True	                2	                    0	        Vision frozen except last 2 blocks
+        True	                0	                    16	        Vision frozen except LoRA modules rank 16
+        False	                —	                    —	        Vision fully trainable
+
+    freeze_llm	        unfreeze_lm_head	    use_llm_lora	        Result
+        True	                False	                0	        LLM fully frozen
+        True	                True	                0	        Only lm_head trains
+        True	                False	                16	        LLM frozen except LoRA adapters rank 16
+        False	                —	                    —	        LLM fully trainable
+    """
     freeze_llm: bool = field(
         default=False,
         metadata={'help': 'Set to True to freeze the LLM. Default is False.'},
@@ -142,6 +162,10 @@ class ModelArguments:
         # final layer of the language model to be trainable, while the other parts may still be frozen
         # adapt the output distribution of the LLM to the downstream task
     )
+    """
+    grad_checkpoint: saves memory, costs speed. 
+    drop_path_rate: randomly skip entire residual blocks in ViT, prevents overfitting in vision backbones
+    """
     grad_checkpoint: bool = field(
         default=True,
         metadata={'help': 'Set to True to use gradient checkpointing. Default is True.'},
@@ -170,6 +194,18 @@ class DataTrainingArguments:
     """
     Arguments for specifying data input for training and evaluation.
     """
+    """
+    data preprocessing parameters:
+    1. max_seq_length: maximum total length of the input sequence after tokenization
+                    text token + image token (e.g., 448x448 image -> 1200 tokens)
+                    Longer gets truncated; shorter padded.
+    2. force_image_size: The target resolution the image is resized to before patch embedding.
+                    Habitat RGB images 640×480 ’ll be resized to 448×448 (with possible aspect distortion unless pad2square=True
+    3. down_sample_ratio: Ratio by which the spatial resolution of the vision tokens is reduced after patch embedding.
+                    eg: 0.5 means 28×28=784 tokens → 14×14=196 tokens
+    4. pad2square: Whether to pad the image to a square before resizing.
+                    Prevents aspect ratio distortion
+    """
     max_seq_length: int = field(
         default=8192,
         metadata={
@@ -193,6 +229,16 @@ class DataTrainingArguments:
         default=False,
         metadata={'help': 'Pad the image to a square shape if set to True. Default is False.'},
     )
+    """
+    Conversation style & dataset metadata
+    1. conv_style: in conversation.py, register_conv_template
+    2. meta_path: path to the metadata file of the dataset
+    3. use_data_resampling: WeightedConcatDataset according to dataset lengths (how many data sources in meta_path)
+    4. dynamic_image_size
+    5. use_thumbnail: a small set of tokens that carry global context instead of patches
+    6. min_dynamic_patch, 
+    7. max_dynamic_patch: 
+    """
     conv_style: str = field(
         default='internlm2-chat', metadata={'help': 'Prompt style for a conversation.'}
     )
@@ -226,6 +272,9 @@ class DataTrainingArguments:
         default=12,
         metadata={'help': 'The maximum number of dynamic patches. Default is 12.'},
     )
+    """
+    Video support: Minimum/maximum frames per video sample.
+    """
     min_num_frame: int = field(
         default=8,
         metadata={'help': 'The minimum number of frames for video data. Default is 8.'},
@@ -234,10 +283,16 @@ class DataTrainingArguments:
         default=32,
         metadata={'help': 'The maximum number of frames for video data. Default is 32.'},
     )
+    """
+    Image normalization
+    """
     normalize_type: Literal['imagenet', 'clip', 'siglip'] = field(
         default='imagenet',
         metadata={'help': 'The normalization type for the image. Default is imagenet.'},
     )
+    """
+    Data Packing 
+    """
     # packed dataset: multiple smaller data samples are packed together into a larger "super-sample"
     # input data may vary significantly in size (process sequential or variable-length inputs)
     use_packed_ds: bool = field(
@@ -272,6 +327,9 @@ class DataTrainingArguments:
         default=False,
         metadata={'help': 'Whether to drop the sample over the specified max_packed_tokens. Default is False.'},
     )
+    """
+    Loss configuration
+    """
     loss_reduction: str = field(
         default='token',
         metadata={'help': 'Loss reduction method. Default is token.'},
@@ -674,23 +732,23 @@ class LazySupervisedDataset(Dataset):
                 break
             except Exception as e:
                 try_cnt += 1
-                print(e, self.ds_name, flush=True)
+                logger.info(e, self.ds_name, flush=True)
                 if not isinstance(e, (UnidentifiedImageError, FileNotFoundError)):
                     traceback.print_exc()
                 data_item = json.loads(self.raw_data[i])
                 if 'image' in data_item:
                     if type(data_item['image']) == list:
                         images = [self.root + item for item in data_item['image']]
-                        print(f'Failed to load image: {images}, the dataset is: {self.ds_name}')
+                        logger.info(f'Failed to load image: {images}, the dataset is: {self.ds_name}')
                     else:
                         if data_item['image'].startswith('s3://'):
                             data_path = self.root + data_item['image']
                         else:
                             data_path = os.path.join(self.root, data_item['image'])
-                        print(f'Failed to load image: {data_path}, the dataset is: {self.ds_name}')
+                        logger.info(f'Failed to load image: {data_path}, the dataset is: {self.ds_name}')
                 elif 'video' in data_item:
                     data_path = os.path.join(self.root, data_item['video'])
-                    print(f'Failed to load video: {data_path}, the dataset is: {self.ds_name}')
+                    logger.info(f'Failed to load video: {data_path}, the dataset is: {self.ds_name}')
                 i = random.randint(0, len(self.raw_data) - 1)
         return ret
 
@@ -734,6 +792,7 @@ def build_datasets(
     data_world_size = dist.get_world_size()
     ds_collections = json.loads(open(data_args.meta_path).read())
     for ds_idx, ds_name in enumerate(ds_collections.keys()):
+        # how many time the dataset is repeated
         repeat_time = ds_collections[ds_name]['repeat_time']
         if 'max_dynamic_patch' in ds_collections[ds_name]:
             max_num = ds_collections[ds_name]['max_dynamic_patch']
@@ -823,20 +882,8 @@ def main():
 
     # for multi-GPU training
     launcher = os.environ.get('LAUNCHER', 'slurm')
-    if os.getenv("IS_DEBUG", "0") == "1":
-        try:
-            torch.distributed.init_process_group(
-                backend='nccl',  # Use 'gloo' for CPU or 'nccl' for GPU
-                init_method='env://',  # This is common when running distributed
-                rank=0,  # Rank 0 for single GPU in debug mode
-                world_size=1  # Only one process
-            )
-            print("Successfully initialized process group for debugging.")
-        except Exception as e:
-            print(f"Failed to initialize process group: {e}")
-    else:
-        print('Initializing distributed training...')
-        init_dist(launcher=launcher, backend='nccl')
+    logger.info('Initializing distributed training...')
+    init_dist(launcher=launcher, backend='nccl')
 
     # parse all arguments
     parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments))
@@ -850,6 +897,20 @@ def main():
 
     # transfer 'use_packed_ds' from data_args to training_args
     training_args.use_packed_ds = data_args.use_packed_ds
+
+    logger.info(f'Data arguments {data_args}')
+    logger.info(f'Model arguments {model_args}')
+    logger.info(f'Training/evaluation parameters {training_args}')
+    """
+    Training Parameters: https://huggingface.co/docs/transformers/v4.37.2/en/index
+    1. overwrite_output_dir: 
+        If True, overwrite the content of the output directory. 
+        If false, continue training if output_dir points to a checkpoint directory.
+    2. group_by_length： 
+        Whether or not to group together samples of roughly the same length in the training 
+        dataset (to minimize padding applied and be more efficient). 
+        Only useful if applying dynamic padding.
+    """
 
     # Sending telemetry. Tracking the example usage helps us better allocate resources to maintain them. The
     # information sent is the one passed as arguments along with your Python/PyTorch versions.
@@ -876,10 +937,9 @@ def main():
 
     # Log on each process the small summary:
     logger.warning(
-        f'Process rank: {training_args.local_rank}, device: {training_args.device}, n_gpu: {training_args.n_gpu}'
+        f'Process rank: {training_args.local_rank}, device: {training_args.device}, n_gpu: {training_args.n_gpu}, '
         + f'distributed training: {bool(training_args.local_rank != -1)}, 16-bits training: {training_args.fp16}'
     )
-    logger.info(f'Training/evaluation parameters {training_args}')
 
     # Detecting last checkpoint and eventually continue from last checkpoint.
     last_checkpoint = None
@@ -902,35 +962,47 @@ def main():
     # load tokenizer
     tokenizer_path = model_args.model_name_or_path or model_args.llm_path
     logger.info(f'Loading Tokenizer: {tokenizer_path}')
+
+    # Special tokens have been added in the vocabulary
+    # Find more in added_tokens.json
     tokenizer = AutoTokenizer.from_pretrained(
-        tokenizer_path, add_eos_token=False, trust_remote_code=True, use_fast=model_args.use_fast_tokenizer)
+        tokenizer_path,
+        add_eos_token=False,
+        trust_remote_code=True,
+        use_fast=model_args.use_fast_tokenizer)
+
     tokenizer.tokenizer_path = tokenizer_path
     tokenizer.model_max_length = data_args.max_seq_length
     token_list = [IMG_START_TOKEN, IMG_END_TOKEN, IMG_CONTEXT_TOKEN,
                   QUAD_START_TOKEN, QUAD_END_TOKEN, REF_START_TOKEN,
                   REF_END_TOKEN, BOX_START_TOKEN, BOX_END_TOKEN]
     num_new_tokens = tokenizer.add_tokens(token_list, special_tokens=True)
+
+    #
     img_context_token_id = tokenizer.convert_tokens_to_ids(IMG_CONTEXT_TOKEN)
     tcs_loader = TCSLoader('~/petreloss.conf') if has_tcs_loader else None
 
+    # To support Data Packing
     if data_args.use_packed_ds:
         replace_internlm2_attention_class()
         replace_qwen2_attention_class()
         replace_phi3_attention_class()
         replace_llama_attention_class()
 
+    # not applicable to InternVLChatModel
     if model_args.use_liger:
-        from internvl.patch import apply_liger_kernel_to_internvit
+        # from internvl.patch import apply_liger_kernel_to_internvit
         from liger_kernel.transformers import (apply_liger_kernel_to_llama,
                                                apply_liger_kernel_to_qwen2)
         apply_liger_kernel_to_llama()
         apply_liger_kernel_to_qwen2()
         # apply_liger_kernel_to_internvit()
+
     #  loading the model configuration and instantiating the model
     if model_args.model_name_or_path is not None:
         logger.info('Loading InternVLChatModel...')
 
-        # get model's configuration from pretrained model (specified by name)
+        # get model's configuration from pretrained model (specified by name) ./pretrained/
         # configuration_internvl_chat.py
         config = InternVLChatConfig.from_pretrained(model_args.model_name_or_path)
         config.vision_config.drop_path_rate = model_args.drop_path_rate
@@ -939,7 +1011,9 @@ def main():
             logger.info('Using flash_attention_2 for InternLM')
         else:
             config.llm_config._attn_implementation = 'flash_attention_2'  # for LLaMA
-            logger.info('Using flash_attention_2 for LLaMA')
+            logger.info('Using flash_attention_2 for LLaMA and Qwen2')
+
+        # write the config to the original model config
         config.template = data_args.conv_style
         config.select_layer = model_args.vision_select_layer
         config.dynamic_image_size = data_args.dynamic_image_size
@@ -948,11 +1022,16 @@ def main():
         config.min_dynamic_patch = data_args.min_dynamic_patch
         config.max_dynamic_patch = data_args.max_dynamic_patch
 
-        # use the config to construct the model
+        # use the new config to construct the model
         # modeling_internvl_chat.py
         model = InternVLChatModel.from_pretrained(
-            model_args.model_name_or_path, torch_dtype=torch.bfloat16, config=config)
+            model_args.model_name_or_path,
+            torch_dtype=torch.bfloat16,
+            config=config
+        )
+
     else:
+        logger.info('No pretrained model specified, building from scratch...')
         logger.info('Loading ViT-6B...')
         vision_config = InternVisionConfig.from_pretrained(model_args.vision_path)
         vision_config.drop_path_rate = model_args.drop_path_rate
@@ -981,6 +1060,7 @@ def main():
         internvl_chat_config.force_image_size = data_args.force_image_size
         logger.info('Building InternVLChatModel...')
         model = InternVLChatModel(internvl_chat_config, vision_model, llm)
+
     model.img_context_token_id = img_context_token_id
 
     assert model.config.downsample_ratio == data_args.down_sample_ratio
@@ -993,9 +1073,9 @@ def main():
     logger.info('Finished loading model and tokenizer')
 
     patch_size = model.config.vision_config.patch_size
-    logger.info(f'model.config.force_image_size: {model.config.force_image_size}')
-    logger.info(f'data_args.force_image_size: {data_args.force_image_size}')
-    logger.info(f'model.config.vision_config.image_size: {model.config.vision_config.image_size}')
+    # logger.info(f'model.config.force_image_size: {model.config.force_image_size}')
+    # logger.info(f'data_args.force_image_size: {data_args.force_image_size}')
+    # logger.info(f'model.config.vision_config.image_size: {model.config.vision_config.image_size}')
     if model.config.vision_config.image_size != data_args.force_image_size:
         logger.info(f'Resizing position embedding from '
                     f'{model.config.vision_config.image_size} '
@@ -1005,8 +1085,12 @@ def main():
                                                  patch_size=patch_size)
         model.config.vision_config.image_size = data_args.force_image_size
     model.config.force_image_size = data_args.force_image_size
+    # how many vision tokens that ViT produces per image after patching (and optional downsampling)
+    # Each patch (14×14 pixels) → 1 vision token
     model.num_image_token = int((data_args.force_image_size // patch_size) ** 2 * (data_args.down_sample_ratio ** 2))
+    logger.info("Number of image tokens per image: %d", model.num_image_token)
 
+    # if new tokens are added to the tokenizer, resize the model's output embeddings
     if num_new_tokens > 0:
         model.language_model.resize_token_embeddings(len(tokenizer))
         output_embeddings = model.language_model.get_output_embeddings().weight.data
@@ -1020,18 +1104,23 @@ def main():
     model.vision_model.gradient_checkpointing = True
     model.vision_model.encoder.gradient_checkpointing = True
 
-    logger.info(f'Model Structure: {model}')
-
     if model_args.grad_checkpoint:
         model.language_model._set_gradient_checkpointing()
 
     # Load datasets
-    train_dataset = build_datasets(
-        data_args, tokenizer, tcs_loader, model, group_by_length=training_args.group_by_length,
-        dynamic_image_size=data_args.dynamic_image_size, use_thumbnail=data_args.use_thumbnail,
-        min_dynamic_patch=data_args.min_dynamic_patch, max_dynamic_patch=data_args.max_dynamic_patch,
-        normalize_type=data_args.normalize_type, min_num_frame=data_args.min_num_frame,
-        max_num_frame=data_args.max_num_frame)
+    train_dataset = build_datasets(data_args,
+                                   tokenizer,
+                                   tcs_loader,
+                                   model,
+                                   group_by_length=training_args.group_by_length,
+                                   dynamic_image_size=data_args.dynamic_image_size,
+                                   use_thumbnail=data_args.use_thumbnail,
+                                   min_dynamic_patch=data_args.min_dynamic_patch,
+                                   max_dynamic_patch=data_args.max_dynamic_patch,
+                                   normalize_type=data_args.normalize_type,
+                                   min_num_frame=data_args.min_num_frame,
+                                   max_num_frame=data_args.max_num_frame
+    )
 
     def _freeze_params(module):
         for param in module.parameters():
@@ -1056,7 +1145,7 @@ def main():
         model.wrap_llm_lora(r=model_args.use_llm_lora, lora_alpha=2 * model_args.use_llm_lora)
         model.config.use_llm_lora = model_args.use_llm_lora
 
-    logger.info(f'LoRA Model Structure: {model}')
+    # logger.info(f'LoRA Model Structure: {model}')
 
     if model_args.freeze_mlp:
         _freeze_params(model.mlp1)
@@ -1087,6 +1176,31 @@ def main():
         )
     else:
         collator = concat_pad_data_collator
+
+    # --- Model summary ---
+    logger.info(f"Model type: {model.__class__.__name__}")
+    logger.info(f"Vision encoder: {model.vision_model.__class__.__name__}")
+    logger.info(f"Language model: {model.language_model.__class__.__name__}")
+
+    # Vision-specific
+    logger.info(f"Image size: {model.config.force_image_size}")
+    logger.info(f"Patch size: {model.config.vision_config.patch_size}")
+    logger.info(f"Downsample ratio: {model.config.downsample_ratio}")
+    logger.info(f"Image tokens per image: {model.num_image_token}")
+
+    # Tokenizer info
+    logger.info(f"Tokenizer vocab size: {len(tokenizer)}")
+    logger.info(f"Special tokens: {tokenizer.special_tokens_map}")
+
+    # Parameter counts
+    total_params = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    logger.info(f"Total parameters: {total_params:,}")
+    logger.info(f"Trainable parameters: {trainable_params:,}")
+    logger.info(f"Frozen parameters: {total_params - trainable_params:,}")
+
+    # Optional sanity check
+    logger.info(f"Max sequence length: {tokenizer.model_max_length}")
 
     trainer = Trainer(
         model=model,

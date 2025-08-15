@@ -83,10 +83,10 @@ class InternVLChatConfig(PretrainedConfig):
         self.tie_word_embeddings = False
         self.llm_config.tie_word_embeddings = self.tie_word_embeddings
 
-        logger.info(f'vision_select_layer: {self.select_layer}')
-        logger.info(f'ps_version: {self.ps_version}')
-        logger.info(f'min_dynamic_patch: {self.min_dynamic_patch}')
-        logger.info(f'max_dynamic_patch: {self.max_dynamic_patch}')
+        # logger.info(f'vision_select_layer: {self.select_layer}')
+        # logger.info(f'ps_version: {self.ps_version}')
+        # logger.info(f'min_dynamic_patch: {self.min_dynamic_patch}')
+        # logger.info(f'max_dynamic_patch: {self.max_dynamic_patch}')
 
     def to_dict(self):
         """

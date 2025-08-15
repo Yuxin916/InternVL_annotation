@@ -65,9 +65,9 @@ class InternVLChatModel(PreTrainedModel):
         config.vision_config.use_flash_attn = True if use_flash_attn else False
         config.llm_config.attn_implementation = 'flash_attention_2' if use_flash_attn else 'eager'
 
-        logger.info(f'num_image_token: {self.num_image_token}')
-        logger.info(f'ps_version: {self.ps_version}')
-        logger.info(f'llm_arch_name: {self.llm_arch_name}')
+        # logger.info(f'num_image_token: {self.num_image_token}')
+        # logger.info(f'ps_version: {self.ps_version}')
+        # logger.info(f'llm_arch_name: {self.llm_arch_name}')
 
         # model ViT
         if vision_model is not None:
