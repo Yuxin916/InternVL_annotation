@@ -1,16 +1,16 @@
 {
   "mp3d_hdt_C16": {
     "root": "../../data_mp3d_hdt/objectnav_mp3d_35k/",
-    "annotation": "../../data_mp3d_hdt/objectnav_mp3d_35k/train_C16/single_image_single_round.jsonl",
+    "annotation": "../../data_mp3d_hdt/objectnav_mp3d_35k/train_C16/multi_image_single_round.jsonl",
     "data_augment": false,
-    "repeat_time": 5,
+    "repeat_time": 1,
     "length": 858921
   },
   "mp3d_hdt_C5": {
     "root": "../../data_mp3d_hdt/objectnav_mp3d_35k/",
-    "annotation": "../../data_mp3d_hdt/objectnav_mp3d_35k/train_C5/single_image_single_round.jsonl",
+    "annotation": "../../data_mp3d_hdt/objectnav_mp3d_35k/train_C5/multi_image_single_round.jsonl",
     "data_augment": false,
-    "repeat_time": 5,
+    "repeat_time": 1,
     "length": 298291
   }
 }

@@ -590,6 +590,9 @@ def packed_collate_fn(
     num_samples = 0
     num_padding_tokens = 0
     for feat_idx, feat in enumerate(features):
+        if 'data_index' not in feat:
+            logger.warning(f"[packed_collate_fn] feature[{feat_idx}] missing data_index; keys={list(feat.keys())}")
+
         data_index = feat.pop('data_index')
         curr_cu_seqlens, curr_indexes, curr_loss_weight = PackedDataset.get_cu_seqlens_and_indexes(
             data_index=data_index,

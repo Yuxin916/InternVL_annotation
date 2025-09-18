@@ -167,7 +167,6 @@ internvl_chat/work_dirs/
 internvl_chat/unittest/
 internvl_chat/data/
 Husky2/*
-data_process/
 *distillation*
 
 batchscript-*
