@@ -5,6 +5,7 @@ import os
 import random
 import time
 from functools import partial
+from transformers.utils import logging as hf_logging
 
 import torch
 from internvl.model import load_model_and_tokenizer
@@ -32,9 +33,9 @@ ds_collections = {
         'min_new_tokens': 8,
     },
     'coco': {
-        'root': 'data/coco/',
-        'annotation': ['data/coco/annotations/coco_karpathy_test.json',
-                       'data/coco/annotations/coco_karpathy_test_gt.json'],
+        'root': '../../../COCO_dataset/',
+        'annotation': ['../../../COCO_dataset/annotations/coco_karpathy_test.json',
+                       '../../../COCO_dataset/annotations/coco_karpathy_test_gt.json'],
         'max_new_tokens': 30,
         'min_new_tokens': 8,
     },
@@ -152,7 +153,7 @@ class InferenceSampler(torch.utils.data.sampler.Sampler):
 
 def evaluate_chat_model():
     prompt = 'Provide a one-sentence caption for the provided image.'
-    print('prompt:', prompt)
+    # print('prompt:', prompt)
     random.seed(args.seed)
     summaries = []
 
@@ -180,8 +181,12 @@ def evaluate_chat_model():
             collate_fn=partial(collate_fn, tokenizer=tokenizer),
         )
 
+        print(f"Total iterations: {len(dataloader)}")
+
         image_ids, captions = [], []
-        for _, (pixel_values, ids, _, _) in tqdm(enumerate(dataloader)):
+
+        for _, (pixel_values, ids, _, _) in tqdm(enumerate(dataloader),total=len(dataloader)):
+        # for _, (pixel_values, ids, _, _) in tqdm(enumerate(dataloader)):
             pixel_values = pixel_values.to(torch.bfloat16).cuda()
             generation_config = dict(
                 num_beams=args.num_beams,
@@ -195,7 +200,7 @@ def evaluate_chat_model():
                 pixel_values=pixel_values,
                 question=prompt,
                 generation_config=generation_config,
-                verbose=True
+                verbose=False
             )
             image_ids.extend(ids)
             captions.extend([pred])
@@ -211,7 +216,7 @@ def evaluate_chat_model():
         merged_ids = [_ for _ in itertools.chain.from_iterable(merged_ids)]
         merged_captions = [_ for _ in itertools.chain.from_iterable(merged_captions)]
         average_length = sum(len(x.split()) for x in merged_captions) / len(merged_captions)
-        print(f'Average caption length: {average_length}')
+        # print(f'Average caption length: {average_length}')
 
         if torch.distributed.get_rank() == 0:
             print(f'Evaluating {ds_name} ...')
@@ -245,7 +250,7 @@ def evaluate_chat_model():
     writer = open(os.path.join(args.out_dir, f'{out_path}.txt'), 'a')
     print(f"write results to file {os.path.join(args.out_dir, f'{out_path}.txt')}")
     for summary in summaries:
-        print(summary)
+        # print(summary)
         writer.write(f'{summary}\n')
     writer.close()
 
@@ -297,5 +302,17 @@ if __name__ == '__main__':
     print(f'[test] dynamic_image_size: {args.dynamic}')
     print(f'[test] use_thumbnail: {use_thumbnail}')
     print(f'[test] max_num: {args.max_num}')
+
+
+    # 1) set a real pad_token_id (use EOS if pad is missing)
+    if tokenizer.pad_token_id is None:
+        tokenizer.pad_token_id = tokenizer.eos_token_id
+    model.config.pad_token_id = tokenizer.pad_token_id
+    if hasattr(model, "generation_config") and model.generation_config is not None:
+        model.generation_config.pad_token_id = tokenizer.pad_token_id
+    # --------------------------------------------------------------
+
+    # 2) (optional) silence HF logging globally
+    hf_logging.set_verbosity_error()
 
     evaluate_chat_model()
