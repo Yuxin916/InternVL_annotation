@@ -1,5 +1,9 @@
 set -x
 
+# Sets the GPUS variable to 8 unless it is already defined in the environment
+# how many GPUs will be used for training
+GPUS=${GPUS:-8}
+export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 CHECKPOINT=${1}
 DATASET=${2}
 CHECKPOINT="$(pwd)/${CHECKPOINT}"
