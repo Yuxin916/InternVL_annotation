@@ -49,10 +49,15 @@ class InternVLChatConfig(PretrainedConfig):
             llm_config = {'architectures': ['']}
             logger.info('llm_config is None. Initializing the LlamaConfig config with default values (`LlamaConfig`).')
 
+        # config the vision encoder
+        # configuration_intern_vit.py
         self.vision_config = InternVisionConfig(**vision_config)
+
+        # config the language model
         if llm_config['architectures'][0] == 'LlamaForCausalLM':
             self.llm_config = LlamaConfig(**llm_config)
         elif llm_config['architectures'][0] == 'InternLM2ForCausalLM':
+            # configuration_internlm2.py
             self.llm_config = InternLM2Config(**llm_config)
         elif llm_config['architectures'][0] == 'Phi3ForCausalLM':
             self.llm_config = Phi3Config(**llm_config)
@@ -78,10 +83,10 @@ class InternVLChatConfig(PretrainedConfig):
         self.tie_word_embeddings = False
         self.llm_config.tie_word_embeddings = self.tie_word_embeddings
 
-        logger.info(f'vision_select_layer: {self.select_layer}')
-        logger.info(f'ps_version: {self.ps_version}')
-        logger.info(f'min_dynamic_patch: {self.min_dynamic_patch}')
-        logger.info(f'max_dynamic_patch: {self.max_dynamic_patch}')
+        # logger.info(f'vision_select_layer: {self.select_layer}')
+        # logger.info(f'ps_version: {self.ps_version}')
+        # logger.info(f'min_dynamic_patch: {self.min_dynamic_patch}')
+        # logger.info(f'max_dynamic_patch: {self.max_dynamic_patch}')
 
     def to_dict(self):
         """
