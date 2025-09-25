@@ -15,6 +15,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from functools import partial
 from typing import Dict, Literal, Optional
+from pathlib import Path
 
 import numpy as np
 
@@ -892,15 +893,35 @@ def main():
         # If we pass only one argument to the script, and it's the path to a json file,
         # let's parse it to get our arguments.
         model_args, data_args, training_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
+
+        # insert environment variables to training_args
+        training_args.per_device_train_batch_size = int(os.environ.get('PER_DEVICE_BATCH_SIZE'))
+        training_args.gradient_accumulation_steps = int(os.environ.get('GRADIENT_ACC'))
+        training_args.output_dir = os.path.join(Path(__file__).resolve().parents[4],
+                                            "all_log", "my_intern_vl_experiments",
+                                            os.environ.get("EXP_NAME"))
     else:
         model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+
+    if os.getenv("DEBUG", "0") == "1":
+        # Forcefully disable DS everywhere
+        os.environ["ACCELERATE_USE_DEEPSPEED"] = "false"
+        os.environ.pop("DEEPSPEED_CONFIG_FILE", None)
+        os.environ["USE_DEEPSPEED"] = "0"  # if your code checks this
+        os.environ["WORLD_SIZE"] = "1"
+        os.environ["RANK"] = "0"
+        os.environ["LOCAL_RANK"] = "0"
+        os.environ.setdefault("MASTER_ADDR", "127.0.0.1")
+        os.environ.setdefault("MASTER_PORT", "29500")
+        training_args.deepspeed = None
 
     # transfer 'use_packed_ds' from data_args to training_args
     training_args.use_packed_ds = data_args.use_packed_ds
 
-    logger.info(f'Data arguments {data_args}')
-    logger.info(f'Model arguments {model_args}')
-    logger.info(f'Training/evaluation parameters {training_args}')
+    # logger.info(f'Data arguments {data_args}')
+    # logger.info(f'Model arguments {model_args}')
+    # logger.info(f'Training/evaluation parameters {training_args}')
+
     """
     Training Parameters: https://huggingface.co/docs/transformers/v4.37.2/en/index
     1. overwrite_output_dir: 
@@ -1156,11 +1177,11 @@ def main():
             logger.info(f'Unfreezing ViT layer: {k}')
             v.requires_grad = True
 
-    # print trainable parameters
-    if dist.get_rank() == 0:
-        for name, param in model.named_parameters():
-            if param.requires_grad:
-                logger.info(name)
+    # # print trainable parameters
+    # if dist.get_rank() == 0:
+    #     for name, param in model.named_parameters():
+    #         if param.requires_grad:
+    #             logger.info(name)
 
     # set seed for torch dataloaders
     set_seed(training_args.seed)

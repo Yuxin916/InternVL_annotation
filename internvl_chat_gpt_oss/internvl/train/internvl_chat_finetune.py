@@ -463,6 +463,7 @@ class LazySupervisedDataset(Dataset):
         ret = preprocess_function(self.template_name, [deepcopy(data_item['conversations'])],
                                   self.tokenizer, [self.num_image_token * num_patches],
                                   group_by_length=self.group_by_length,
+                                  use_packed_ds=self.use_packed_ds,
                                   ds_name=self.ds_name)
 
         # Calculate position_ids for packed dataset
@@ -519,6 +520,7 @@ class LazySupervisedDataset(Dataset):
         num_image_tokens = [self.num_image_token * num_tile for num_tile in num_tiles]
         ret = preprocess_function(self.template_name, [deepcopy(data_item['conversations'])],
                                   self.tokenizer, num_image_tokens, group_by_length=self.group_by_length,
+                                  use_packed_ds=self.use_packed_ds,
                                   ds_name=self.ds_name, num_image=num_image)
 
         # Calculate position_ids for packed dataset

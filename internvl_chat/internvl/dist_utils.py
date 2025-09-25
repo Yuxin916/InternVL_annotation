@@ -30,6 +30,16 @@ def _is_free_port(port):
 
 
 def init_dist(launcher, backend='nccl', **kwargs):
+
+    debug = os.getenv("DEBUG", "0") == "1"
+    world_size = int(os.getenv("WORLD_SIZE", "1"))
+
+    # --- Single-process fast path (PyCharm debug / 1 GPU) ---
+    if debug or world_size <= 1:
+        print(f"[dist] single-process mode (debug={debug}, world_size={world_size})")
+        return _single_process_init()
+
+    # For multi-proc runs
     if mp.get_start_method(allow_none=True) is None:
         mp.set_start_method('spawn')
     if launcher == 'pytorch':
@@ -41,6 +51,18 @@ def init_dist(launcher, backend='nccl', **kwargs):
     else:
         raise ValueError(f'Invalid launcher type: {launcher}')
 
+def _single_process_init():
+    # Ensure sane defaults
+    os.environ.setdefault("RANK", "0")
+    os.environ.setdefault("LOCAL_RANK", "0")
+    os.environ.setdefault("WORLD_SIZE", "1")
+    os.environ.setdefault("MASTER_ADDR", "127.0.0.1")
+    os.environ.setdefault("MASTER_PORT", "34229")
+    os.environ.setdefault("ACCELERATE_USE_DEEPSPEED", "false")
+
+    if torch.cuda.is_available():
+        torch.cuda.set_device(0)
+    return  # no distributed init
 
 def _init_dist_pytorch(backend, **kwargs):
     # TODO: use local_rank instead of rank % num_gpus
